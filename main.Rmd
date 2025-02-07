@@ -1,0 +1,74 @@
+### Imports
+```{r}
+library(MASS)
+library(parallel)
+library(klaR)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(FactoMineR)
+library(dplyr)
+library(parallel)
+library(class)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+source("src/encoding.r")
+source("src/plots.r")
+source("src/ml_models.R")
+```
+
+### Dataset
+```{r}
+data_init <- read.csv("src/diabetes_prediction_dataset.csv")
+
+N <- 5000
+
+data_init <- na.omit(data_init)
+data_init <- data_init[data_init$smoking_history != "No Info", ]
+data_init <- data_init[data_init$gender != "Other", ]
+
+data_init$smoking_history <- factor(data_init$smoking_history, levels = c("never", "former", "current", "ever", "not current"))
+
+data_init$diabetes <- factor(data_init$diabetes, levels = c(0, 1), labels = c("no diabete", "diabete"))
+oui_sample <- data_init[data_init$diabetes == "diabete", ]
+non_sample <- data_init[data_init$diabetes == "no diabete", ]
+set.seed(4210)
+oui_sample <- oui_sample[sample(1:nrow(oui_sample), N * 0.5), ]
+non_sample <- non_sample[sample(1:nrow(non_sample), N * 0.5), ]
+
+data_init <- rbind(oui_sample, non_sample)
+set.seed(4210)
+data <- data_init[sample(1:nrow(data_init)), ]
+str(data)
+```
+
+```{r}
+knn_numeric <- resample_knn_parallel(preprocess_dummy(data), k_values = seq(3, 51, by = 2), n_iterations = 500)
+lda_numeric <- resample_lda(apply_acm(data), n_iterations = 500)
+tree_numeric <- resample_tree(only_numeric(data), n_iterations = 500)
+```
+
+```{r}
+plot_results(knn_numeric, "knn")
+plot_results(lda_numeric, "lda")
+plot_results(tree_numeric, "tree")
+```
+
+```{r}
+compare_method(lda_numeric, knn_numeric, tree_numeric, c("no diabete", "diabete"))
+```
+
+```{r}
+knn <- resample_knn_parallel(preprocess_dummy(data), k_values = seq(3, 51, by = 2), n_iterations = 500)
+lda <- resample_lda(apply_acm(data), n_iterations = 500)
+tree <- resample_tree(data, n_iterations = 500)
+```
+
+```{r}
+plot_results(knn, "knn")
+plot_results(lda, "lda")
+plot_results(tree, "tree")
+```
+
+```{r}
+compare_method(lda, knn, tree, c("no diabete", "diabete"))
+```
